@@ -1,7 +1,0 @@
-config {
-  type: "declaration",
-  database: "bcs-customer360-dev",
-  schema: "staging",
-  name: "stg_sq_2_main",
-  description: "raw stg_sq_2_main table"
-}

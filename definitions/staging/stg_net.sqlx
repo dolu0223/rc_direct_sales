@@ -1,0 +1,95 @@
+config {
+  type: "table",
+  schema: "staging",
+  description: "Table for fetch Billing Data and derive Net  Sales Quantities"
+}
+
+SELECT
+    DISTINCT --LEGACY_CUST.LEGACY_CUSTOMER_NUMBER AS OPERATIONAL_ACCOUNT_IDENTIFIER_1 GAP TO FILL
+    CASE
+      WHEN CUST.ACCOUNT_GROUP_CODE = '0001'
+      AND CUST.DISTRIBUTION_CHANNEL_CODE = '00'
+      AND CUST.DIVISION_CODE = '17' THEN CASE
+        WHEN CUST.SALES_ORGANIZATION_CODE = 'GB01'
+        AND CUST.CUSTOMER_GROUP_CODE = 'WR' THEN 'DISTRIBUTOR'
+        ELSE ' '
+      END
+      ELSE ' '
+    END AS OPERATIONAL_ACCOUNT_IDENTIFIER_1_CLASSIFICATION_CODE,
+    BL.sls_grp_cd AS POSITION_LEVEL_1_CODE,
+    BL.mtrl_nbr AS MATERIAL_NUMBER,
+    BH.sls_doc_crncy_cd AS LOCAL_CURRENCY_CODE,
+    BL.sls_ord_nbr AS SALES_ORDER_NUMBER,
+    BL.div_cd AS DIVISION_CODE,
+    BH.sls_org_cd AS SALES_ORGANIZATION_CODE,
+    BL.sls_district_cd AS SALES_DISTRICT_CODE,
+    MIN(BH.billng_dt) AS INVOICE_DATE,
+    SUM(
+      CASE
+        WHEN BH.sls_doc_ctgy_cd IN ('6', 'N', 'O') THEN (BL.net_val * -1)
+        ELSE BL.net_val
+      END
+    ) AS NET_SALES_AMOUNT_LOCAL,
+    SUM(
+      CASE
+        WHEN BH.sls_doc_ctgy_cd IN ('6', 'N', 'O') THEN (BL.subtot_1_val * -1)
+        ELSE BL.subtot_1_val
+      END
+    ) AS GROSS_SALES_AMOUNT_LOCAL,
+    SUM(
+      CASE
+        WHEN BH.sls_doc_ctgy_cd IN ('6', 'N', 'O') THEN (
+          (
+            BL.act_invc_qty * BASE_CONV.TO_BASE_UNIT_OF_MEASURE_CONVERSION_FACTOR
+          ) / LOCAL_CONV.TO_BASE_UNIT_OF_MEASURE_CONVERSION_FACTOR
+        ) * -1
+        ELSE (
+          BL.act_invc_qty * BASE_CONV.TO_BASE_UNIT_OF_MEASURE_CONVERSION_FACTOR
+        ) / LOCAL_CONV.TO_BASE_UNIT_OF_MEASURE_CONVERSION_FACTOR
+      END
+    ) as NET_SALES_QUANTITY_LOCAL,
+    SUM(
+      CASE
+        WHEN BH.sls_doc_ctgy_cd IN ('6', 'N', 'O') THEN (
+          (
+            BL.act_invc_qty * BASE_CONV.TO_BASE_UNIT_OF_MEASURE_CONVERSION_FACTOR
+          ) / GLOBAL_CONV.TO_BASE_UNIT_OF_MEASURE_CONVERSION_FACTOR
+        ) * -1
+        ELSE (
+          BL.act_invc_qty * BASE_CONV.TO_BASE_UNIT_OF_MEASURE_CONVERSION_FACTOR
+        ) / GLOBAL_CONV.TO_BASE_UNIT_OF_MEASURE_CONVERSION_FACTOR
+      END
+    ) as NET_SALES_QUANTITY_GLOBAL
+  FROM
+    ${ref('billng_hdr')} AS BH
+    INNER JOIN ${ref('billing_line')} AS BL ON BH.billng_doc_nbr = BL.billng_doc_nbr --AND BH.CLIENT_NUMBER (GAP) = BL.CLIENT_NUMBER (GAP)
+    AND BH.sap_src_sys_cd = BL.sap_src_sys_cd
+    LEFT JOIN CTE_CONVERSION BASE_CONV ON BL.mtrl_nbr = BASE_CONV.MATERIAL_NUMBER
+    AND BL.sls_unit_cd = BASE_CONV.ALTERNATE_UNIT_OF_MEASURE_CODE
+    LEFT JOIN CTE_CONVERSION LOCAL_CONV ON BL.mtrl_nbr = LOCAL_CONV.MATERIAL_NUMBER
+    AND LOCAL_CONV.ALTERNATE_UNIT_OF_MEASURE_CODE = 'ESU'
+    AND BL.sls_unit_cd = LOCAL_CONV.BASE_UNIT_OF_MEASURE_CODE
+    LEFT JOIN CTE_CONVERSION GLOBAL_CONV ON BL.mtrl_nbr = GLOBAL_CONV.MATERIAL_NUMBER
+    AND GLOBAL_CONV.ALTERNATE_UNIT_OF_MEASURE_CODE = 'SSU'
+    AND BL.sls_unit_cd = GLOBAL_CONV.BASE_UNIT_OF_MEASURE_CODE
+    LEFT JOIN SQ_1 CUST ON BH.sold_to_cust_nbr = CUST.CUSTOMER_NUMBER
+    AND BL.div_cd = CUST.DIVISION_CODE
+    AND BH.sls_org_cd = CUST.SALES_ORGANIZATION_CODE
+  WHERE
+    BH.distr_chnl_cd NOT IN ('38', '50')
+    AND BL.div_cd = '17' --AND BH.cncld_billng_doc_cd = 'N' --this is where you are losing all your data so I commented it out
+    AND BH.billng_type_cd NOT IN ('S1', 'S2')
+  GROUP BY
+    BH.sold_to_cust_nbr,
+    BL.mtrl_nbr,
+    BL.sls_ord_nbr,
+    BL.div_cd,
+    BL.sls_grp_cd,
+    BL.sls_district_cd,
+    BH.sls_doc_crncy_cd,
+    BH.sls_org_cd,
+    CUST.ACCOUNT_GROUP_CODE,
+    CUST.DISTRIBUTION_CHANNEL_CODE,
+    CUST.DIVISION_CODE,
+    CUST.SALES_ORGANIZATION_CODE,
+    CUST.CUSTOMER_GROUP_CODE

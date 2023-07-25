@@ -1,7 +1,0 @@
-config {
-  type: "declaration",
-  database: "bcs-customer360-dev",
-  schema: "staging",
-  name: "stg_net",
-  description: "net"
-}

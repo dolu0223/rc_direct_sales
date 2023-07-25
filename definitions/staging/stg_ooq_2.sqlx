@@ -5,8 +5,8 @@ config {
 }
 
 SELECT
-  RQMT.sls_ord_nbr,
-  RQMT.mtrl_nbr,
+  RQMT.sls_ord_nbr AS SALES_ORDER_NUMBER,
+  RQMT.mtrl_nbr AS MATERIAL_NUMBER,
   SUM(
     (
       RQMT.open_qty * BASE_CONV.TO_BASE_UNIT_OF_MEASURE_CONVERSION_FACTOR

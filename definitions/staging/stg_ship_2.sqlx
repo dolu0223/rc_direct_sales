@@ -5,8 +5,8 @@ config {
 }
 
 SELECT
-    DL.ref_doc_nbr,
-    DL.mtrl_nbr,
+    DL.ref_doc_nbr AS REFERENCE_DOCUMENT_NUMBER,
+    DL.mtrl_nbr AS MATERIAL_NUMBER,
     'ESU' AS LOCAL_UNIT_OF_MEASURE_CODE,
     'SSU' AS GLOBAL_UNIT_OF_MEASURE_CODE,
     SUM(

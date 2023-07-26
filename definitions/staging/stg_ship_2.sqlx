@@ -1,0 +1,35 @@
+config {
+  type: "table",
+  schema: "staging",
+  description: "Table for Shipped Quantity"
+}
+
+SELECT
+    DL.ref_doc_nbr AS REFERENCE_DOCUMENT_NUMBER,
+    DL.mtrl_nbr AS MATERIAL_NUMBER,
+    'ESU' AS LOCAL_UNIT_OF_MEASURE_CODE,
+    'SSU' AS GLOBAL_UNIT_OF_MEASURE_CODE,
+    SUM(
+      (
+        DL.act_sls_units_dlvry_qty * BASE_CONV.TO_BASE_UNIT_OF_MEASURE_CONVERSION_FACTOR
+      ) / LOCAL_CONV.TO_BASE_UNIT_OF_MEASURE_CONVERSION_FACTOR
+    ) AS SHIPPED_QUANTITY_LOCAL,
+    SUM(
+      (
+        DL.act_sls_units_dlvry_qty * BASE_CONV.TO_BASE_UNIT_OF_MEASURE_CONVERSION_FACTOR
+      ) / GLOBAL_CONV.TO_BASE_UNIT_OF_MEASURE_CONVERSION_FACTOR
+    ) AS SHIPPED_QUANTITY_GLOBAL
+  FROM
+    ${ref('dlvry_line')} DL
+    LEFT JOIN ${ref('stg_conversion')} BASE_CONV ON DL.mtrl_nbr = BASE_CONV.MATERIAL_NUMBER
+    AND DL.sale_uom_cd = BASE_CONV.ALTERNATE_UNIT_OF_MEASURE_CODE
+    LEFT JOIN ${ref('stg_conversion')} LOCAL_CONV ON DL.mtrl_nbr = LOCAL_CONV.MATERIAL_NUMBER
+    AND LOCAL_CONV.ALTERNATE_UNIT_OF_MEASURE_CODE = 'ESU'
+    AND DL.sale_uom_cd = LOCAL_CONV.BASE_UNIT_OF_MEASURE_CODE
+    LEFT JOIN ${ref('stg_conversion')} GLOBAL_CONV ON DL.mtrl_nbr = GLOBAL_CONV.MATERIAL_NUMBER
+    AND GLOBAL_CONV.ALTERNATE_UNIT_OF_MEASURE_CODE = 'SSU'
+    AND DL.sale_uom_cd = GLOBAL_CONV.BASE_UNIT_OF_MEASURE_CODE
+  GROUP BY
+    DL.ref_doc_nbr,
+    DL.mtrl_nbr,
+    DL.base_uom_cd
